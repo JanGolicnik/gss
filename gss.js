@@ -3,6 +3,12 @@
 import fs from "node:fs";
 import path from "node:path";
 
+export default {
+  init,
+  render,
+  render_str,
+};
+
 const SRC_DIR = "src";
 const DATA_DIR = path.join("src", "data");
 const COMPONENTS_DIR = path.join("src", "components");
