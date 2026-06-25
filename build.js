@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
-const fs = require("fs");
-const path = require("path");
+import fs from "node:fs";
+import path from "node:path";
 
 const SRC_DIR = "src";
 const DATA_DIR = path.join("src", "data");
@@ -34,21 +34,6 @@ function evaluate(expr, ctx, block) {
   }
 }
 
-function render(tpl, ctx) {
-  return tpl.replace(
-    TOKEN_RE,
-    (_, blockRaw, blockExpr, tripleExpr, doubleExpr) => {
-      if (blockExpr !== undefined) {
-        const out = evaluate(blockExpr, ctx, true);
-        return blockRaw ? String(out) : escapeHtml(out);
-      }
-      if (tripleExpr !== undefined)
-        return String(evaluate(tripleExpr, ctx, false));
-      return escapeHtml(evaluate(doubleExpr, ctx));
-    },
-  );
-}
-
 function* walk_dir(dir, filter = null) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
@@ -58,15 +43,16 @@ function* walk_dir(dir, filter = null) {
   }
 }
 
-function load_components(ctx) {
+function load_components(ctx, dir) {
+  dir = dir ?? COMPONENTS_DIR;
   const c = {};
-  if (!fs.existsSync(COMPONENTS_DIR)) return c;
-  for (const f of walk_dir(COMPONENTS_DIR)) {
+  if (!fs.existsSync(dir)) return c;
+  for (const f of walk_dir(dir)) {
     if (!f.endsWith(".html")) continue;
     const template = fs.readFileSync(f, "utf8");
     const name = path.basename(f, ".html");
     c[name] = (props = {}) =>
-      render(template, {
+      render_str(template, {
         ...ctx,
         c,
         props,
@@ -76,13 +62,14 @@ function load_components(ctx) {
   return c;
 }
 
-function load_data() {
+function load_data(dir) {
+  dir = dir ?? DATA_DIR;
   const data = { now: new Date() };
-  if (!fs.existsSync(DATA_DIR)) return data;
-  for (const f of walk_dir(DATA_DIR)) {
+  if (!fs.existsSync(dir)) return data;
+  for (const f of walk_dir(dir)) {
     if (!f.endsWith(".json")) continue;
-    const p = path.relative(DATA_DIR, f);
-    const parts = p.split(path.sep);
+    const p = path.relative(dir, f);
+    const parts = p.split(dir.sep);
     let obj = data;
     for (let i = 0; i < parts.length - 1; i++) {
       const k = parts[i];
@@ -94,22 +81,56 @@ function load_data() {
   return data;
 }
 
+let app = null;
+
+export function render_str(str, ctx) {
+  return str.replace(
+    TOKEN_RE,
+    (_, blockRaw, blockExpr, tripleExpr, doubleExpr) => {
+      if (blockExpr !== undefined) {
+        const out = evaluate(blockExpr, ctx, true);
+        return blockRaw ? String(out) : escapeHtml(out);
+      }
+      if (tripleExpr !== undefined) {
+        return String(evaluate(tripleExpr, ctx, false));
+      }
+      return escapeHtml(evaluate(doubleExpr, ctx));
+    },
+  );
+}
+
+export function render(f) {
+  const ctx = { ...app.data, c: app.components, page: path.parse(f).name };
+  return render_str(fs.readFileSync(f, "utf8"), ctx);
+}
+
+export function init(dir) {
+  dir = dir ?? SRC_DIR;
+  const data = load_data(dir);
+  const components = load_components(data);
+  app = {
+    data,
+    components,
+  };
+}
+
 function build() {
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
   fs.mkdirSync(OUT_DIR, { recursive: true });
-  const data = load_data();
-  const components = load_components(data);
+
+  init();
+
   for (const f of walk_dir(SRC_DIR, [DATA_DIR, COMPONENTS_DIR])) {
-    const dst = path.join(OUT_DIR, path.relative(SRC_DIR, f));
-    fs.mkdirSync(path.dirname(dst), { recursive: true });
-    if (f.endsWith(".html")) {
-      data.page = path.parse(f).name;
-      const ctx = { ...data, c: components, page: path.parse(f).name };
-      fs.writeFileSync(dst, render(fs.readFileSync(f, "utf8"), ctx));
+    if (!f.endsWith(".html")) {
+      fs.copyFileSync(f, dst);
       continue;
     }
-    fs.copyFileSync(f, dst);
+    const dst = path.join(OUT_DIR, path.relative(SRC_DIR, f));
+    fs.mkdirSync(path.dirname(dst), { recursive: true });
+    fs.writeFileSync(dst, render(f));
   }
 }
 
-build();
+if (process.argv[1] === path.resolve(import.meta.url.slice(7))) {
+  build();
+}
