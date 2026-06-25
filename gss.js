@@ -10,8 +10,8 @@ export default {
 };
 
 const SRC_DIR = "src";
-const DATA_DIR = path.join("src", "data");
-const COMPONENTS_DIR = path.join("src", "components");
+const DATA_DIR = path.join(SRC_DIR, "data");
+const COMPONENTS_DIR = path.join(SRC_DIR, "components");
 const OUT_DIR = "docs";
 
 const TOKEN_RE =
@@ -50,7 +50,6 @@ function* walk_dir(dir, filter = null) {
 }
 
 function load_components(ctx, dir) {
-  dir = dir ?? COMPONENTS_DIR;
   const c = {};
   if (!fs.existsSync(dir)) return c;
   for (const f of walk_dir(dir)) {
@@ -69,7 +68,6 @@ function load_components(ctx, dir) {
 }
 
 function load_data(dir) {
-  dir = dir ?? DATA_DIR;
   const data = { now: new Date() };
   if (!fs.existsSync(dir)) return data;
   for (const f of walk_dir(dir)) {
@@ -106,6 +104,7 @@ export function render_str(str, ctx) {
 }
 
 export function render(f, data) {
+  f = path.join(app.src_dir, f);
   const ctx = {
     ...app.data,
     ...data,
@@ -115,13 +114,18 @@ export function render(f, data) {
   return render_str(fs.readFileSync(f, "utf8"), ctx);
 }
 
-export function init(dir) {
-  dir = dir ?? SRC_DIR;
-  const data = load_data(dir);
-  const components = load_components(data);
+export function init(config) {
+  const src_dir = config.src_dir ?? SRC_DIR;
+  const data_dir = config.data_dir ?? DATA_DIR;
+  const components_dir = config.components_dir ?? COMPONENTS_DIR;
+  const data = load_data(src_dir);
+  const components = load_components(data, components_dir);
   app = {
     data,
     components,
+    src_dir,
+    data_dir,
+    components_dir,
   };
 }
 
@@ -136,9 +140,10 @@ function build() {
       fs.copyFileSync(f, dst);
       continue;
     }
-    const dst = path.join(OUT_DIR, path.relative(SRC_DIR, f));
+    const f2 = path.relative(SRC_DIR, f);
+    const dst = path.join(OUT_DIR, f2);
     fs.mkdirSync(path.dirname(dst), { recursive: true });
-    fs.writeFileSync(dst, render(f));
+    fs.writeFileSync(dst, render(f2));
   }
 }
 
