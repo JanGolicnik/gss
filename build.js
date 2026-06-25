@@ -99,8 +99,13 @@ export function render_str(str, ctx) {
   );
 }
 
-export function render(f) {
-  const ctx = { ...app.data, c: app.components, page: path.parse(f).name };
+export function render(f, data) {
+  const ctx = {
+    ...app.data,
+    ...data,
+    c: app.components,
+    page: path.parse(f).name,
+  };
   return render_str(fs.readFileSync(f, "utf8"), ctx);
 }
 
