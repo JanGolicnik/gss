@@ -115,9 +115,9 @@ export function render(f, data) {
 }
 
 export function init(config) {
-  const src_dir = config.src_dir ?? SRC_DIR;
-  const data_dir = config.data_dir ?? DATA_DIR;
-  const components_dir = config.components_dir ?? COMPONENTS_DIR;
+  const src_dir = config?.src_dir ?? SRC_DIR;
+  const data_dir = config?.data_dir ?? DATA_DIR;
+  const components_dir = config?.components_dir ?? COMPONENTS_DIR;
   const data = load_data(src_dir);
   const components = load_components(data, components_dir);
   app = {
