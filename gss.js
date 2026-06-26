@@ -7,6 +7,7 @@ export default {
   init,
   render,
   render_str,
+  render_component,
 };
 
 const SRC_DIR = "src";
@@ -85,7 +86,26 @@ function load_data(dir) {
   return data;
 }
 
-let app = null;
+let _app = null;
+function get_app() {
+  if (!_app) init();
+  return _app;
+}
+
+function init(config) {
+  const src_dir = config?.src_dir ?? SRC_DIR;
+  const data_dir = config?.data_dir ?? DATA_DIR;
+  const components_dir = config?.components_dir ?? COMPONENTS_DIR;
+  const data = load_data(src_dir);
+  const components = load_components(data, components_dir);
+  _app = {
+    data,
+    components,
+    src_dir,
+    data_dir,
+    components_dir,
+  };
+}
 
 export function render_str(str, ctx) {
   return str.replace(
@@ -103,37 +123,25 @@ export function render_str(str, ctx) {
   );
 }
 
-export function render(f, data) {
+export function render_component(name, data) {
+  return get_app().components[name](data);
+}
+
+export function render(f, props) {
+  const app = get_app();
   f = path.join(app.src_dir, f);
   const ctx = {
     ...app.data,
-    ...data,
+    props,
     c: app.components,
     page: path.parse(f).name,
   };
   return render_str(fs.readFileSync(f, "utf8"), ctx);
 }
 
-export function init(config) {
-  const src_dir = config?.src_dir ?? SRC_DIR;
-  const data_dir = config?.data_dir ?? DATA_DIR;
-  const components_dir = config?.components_dir ?? COMPONENTS_DIR;
-  const data = load_data(src_dir);
-  const components = load_components(data, components_dir);
-  app = {
-    data,
-    components,
-    src_dir,
-    data_dir,
-    components_dir,
-  };
-}
-
 function build() {
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
   fs.mkdirSync(OUT_DIR, { recursive: true });
-
-  init();
 
   for (const f of walk_dir(SRC_DIR, [DATA_DIR, COMPONENTS_DIR])) {
     if (!f.endsWith(".html")) {
