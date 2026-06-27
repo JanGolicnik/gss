@@ -1,8 +1,0 @@
-<!doctype html>
-<html>
-    {{{ c.header({ title:"hello" }) }}}
-    <body>
-        <header><h1>{{ site.title }}</h1></header>
-        <main>{{{ posts.map(p => c.post({ ...p })).join("") }}}</main>
-    </body>
-</html>
