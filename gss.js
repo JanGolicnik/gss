@@ -57,12 +57,12 @@ function load_components(ctx, dir) {
     if (!f.endsWith(".html")) continue;
     const template = fs.readFileSync(f, "utf8");
     const name = path.basename(f, ".html");
-    c[name] = (props = {}) =>
+    c[name] = (p = {}) =>
       render_str(template, {
         ...ctx,
         c,
-        props,
-        children: props.children ?? "",
+        p,
+        children: p.children ?? "",
       });
   }
   return c;
@@ -127,12 +127,12 @@ export function render_component(name, data) {
   return get_app().components[name](data);
 }
 
-export function render(f, props) {
+export function render(f, p) {
   const app = get_app();
   f = path.join(app.src_dir, f);
   const ctx = {
     ...app.data,
-    props,
+    p,
     c: app.components,
     page: path.parse(f).name,
   };
