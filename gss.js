@@ -63,6 +63,7 @@ function load_components(ctx, dir) {
         c,
         p,
         children: p.children ?? "",
+        page: name,
       });
   }
   return c;
@@ -144,13 +145,13 @@ function build() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
   for (const f of walk_dir(SRC_DIR, [DATA_DIR, COMPONENTS_DIR])) {
+    const f2 = path.relative(SRC_DIR, f);
+    const dst = path.join(OUT_DIR, f2);
+    fs.mkdirSync(path.dirname(dst), { recursive: true });
     if (!f.endsWith(".html")) {
       fs.copyFileSync(f, dst);
       continue;
     }
-    const f2 = path.relative(SRC_DIR, f);
-    const dst = path.join(OUT_DIR, f2);
-    fs.mkdirSync(path.dirname(dst), { recursive: true });
     fs.writeFileSync(dst, render(f2));
   }
 }
