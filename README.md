@@ -43,3 +43,5 @@ afterwards every page or component is given the loaded data files and any additi
 <script &> stmt; stmt; return expr; </script> // escapes html and allows for multiple statements, requires a return at the end tho
 <script &&> stmt; stmt; return expr; </script>// same but doesnt escape html
 ```
+
+Licensed under GPLv3, see LICENSE
