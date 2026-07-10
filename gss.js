@@ -18,7 +18,7 @@ const OUT_DIR = "docs";
 const TOKEN_RE =
   /<script\s+&(&)?\s*>([\s\S]*?)<\/script>|\{\{\{([\s\S]+?)\}\}\}|\{\{([\s\S]+?)\}\}/g;
 
-const escapeHtml = (s) =>
+const escape = (s) =>
   String(s).replace(
     /[&<>"']/g,
     (c) =>
@@ -62,6 +62,7 @@ function load_components(ctx, dir) {
         ...ctx,
         c,
         p,
+        escape,
         children: p.children ?? "",
         page: name,
       });
@@ -114,12 +115,12 @@ export function render_str(str, ctx) {
     (_, blockRaw, blockExpr, tripleExpr, doubleExpr) => {
       if (blockExpr !== undefined) {
         const out = evaluate(blockExpr, ctx, true);
-        return blockRaw ? String(out) : escapeHtml(out);
+        return blockRaw ? String(out) : escape(out);
       }
       if (tripleExpr !== undefined) {
         return String(evaluate(tripleExpr, ctx, false));
       }
-      return escapeHtml(evaluate(doubleExpr, ctx));
+      return escape(evaluate(doubleExpr, ctx));
     },
   );
 }
