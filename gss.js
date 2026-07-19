@@ -79,9 +79,7 @@ function compile_template(str) {
     last = TOKEN_RE.lastIndex;
     const [_, markdown, blockRaw, blockExpr, tripleExpr, doubleExpr] = m;
     if (markdown) {
-      out.push({
-        markdown: compile_template(markdown.trim()),
-      });
+      out.push({ markdown: compile_template(markdown) });
       TOKEN_RE.lastIndex = last;
       continue;
     }
@@ -225,6 +223,7 @@ function sectionExtension() {
             out.push({
               type: "section",
               tokens: collect(token.depth),
+              depth: token.depth,
               raw: token.raw,
             });
           }
@@ -238,7 +237,8 @@ function sectionExtension() {
         name: "section",
         level: "block",
         renderer(token) {
-          return `<section>${this.parser.parse(token.tokens)}</section>`;
+          const tag = token.depth > 1 ? "section" : "article";
+          return `<${tag}>${this.parser.parse(token.tokens)}</${tag}>`;
         },
       },
     ],
