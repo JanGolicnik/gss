@@ -2,6 +2,7 @@
 "use strict";
 import fs from "node:fs";
 import path from "node:path";
+import { marked } from "marked";
 
 export default {
   init,
@@ -16,7 +17,7 @@ const COMPONENTS_DIR = path.join(SRC_DIR, "components");
 const OUT_DIR = "docs";
 
 const TOKEN_RE =
-  /<script\s+&(&)?\s*>([\s\S]*?)<\/script>|\{\{\{([\s\S]+?)\}\}\}|\{\{([\s\S]+?)\}\}/g;
+  /<markdown\s*>([\s\S]*?)<\/markdown\s*>|<script\s+&(&)?\s*>([\s\S]*?)<\/script>|\{\{\{([\s\S]*?)\}\}\}|\{\{([\s\S]*?)\}\}/g;
 const ESC = {
   "&": "&amp;",
   "<": "&lt;",
@@ -36,10 +37,13 @@ function get_app() {
 }
 
 const evaluate_cache = new Map();
-function evaluate(expr, ctx, block) {
+function evaluate(e, ctx) {
+  if (typeof e === "string") return e;
+
+  const expr = e.expr;
   const keys = Object.keys(ctx);
   const vals = Object.values(ctx);
-  const src = block
+  const src = e.block
     ? `"use strict"; ${expr}`
     : `"use strict"; return (${expr});`;
 
@@ -57,7 +61,11 @@ function evaluate(expr, ctx, block) {
   }
 }
 
+const template_cache = new Map();
 function compile_template(str) {
+  const template = template_cache.get(str);
+  if (template) return template;
+
   const out = [];
   let last = 0;
   TOKEN_RE.lastIndex = 0;
@@ -68,7 +76,14 @@ function compile_template(str) {
       out.push(str.slice(last, m.index));
     }
     last = TOKEN_RE.lastIndex;
-    const [, blockRaw, blockExpr, tripleExpr, doubleExpr] = m;
+    const [_, markdown, blockRaw, blockExpr, tripleExpr, doubleExpr] = m;
+    if (markdown) {
+      out.push({
+        markdown: compile_template(markdown.trim()),
+      });
+      TOKEN_RE.lastIndex = last;
+      continue;
+    }
     const block = blockExpr !== undefined;
     const triple = tripleExpr !== undefined;
     out.push({
@@ -78,24 +93,19 @@ function compile_template(str) {
     });
   }
   if (last < str.length) out.push(str.slice(last));
+
+  template_cache.set(str, out);
   return out;
 }
 
-function render_template(template, ctx) {
-  let out = "";
-  for (const p of template)
-    out += typeof p === "string" ? p : evaluate(p.expr, ctx, p.block);
-  return out;
-}
-
-const template_cache = new Map();
 export function render_str(str, ctx) {
-  let template = template_cache.get(str);
-  if (!template) {
-    template = compile_template(str);
-    template_cache.set(str, template);
-  }
-  return render_template(template, ctx);
+  return compile_template(str)
+    .map((p) =>
+      p.markdown
+        ? marked.parse(p.markdown.map((t) => evaluate(t, ctx)).join(""))
+        : evaluate(p, ctx),
+    )
+    .join("");
 }
 
 export function render_component(name, data) {
@@ -126,10 +136,11 @@ function* walk_dir(dir, filter = null) {
 function load_components(ctx, dir) {
   const c = {};
   if (!fs.existsSync(dir)) return c;
-  for (const f of walk_dir(dir)) {
-    if (!f.endsWith(".html")) continue;
-    const template = fs.readFileSync(f, "utf8");
-    const name = path.basename(f, ".html");
+  for (const p of walk_dir(dir)) {
+    const extension = path.extname(p);
+    if (extension !== ".html" && extension !== ".md") continue;
+    const template = fs.readFileSync(p, "utf8");
+    const name = path.basename(p, extension);
     c[name] = (p = {}) =>
       render_str(template, { ...ctx, c, p, escape, page: name });
   }
@@ -142,9 +153,9 @@ function load_data(dir) {
   for (const f of walk_dir(dir)) {
     if (!f.endsWith(".json")) continue;
     const p = path.relative(dir, f);
-    const parts = p.split(dir.sep);
+    const parts = p.split(path.sep);
     let obj = data;
-    for (let i = 0; i < parts.length - 1; i++) {
+    for (let i = 1; i < parts.length - 1; i++) {
       const k = parts[i];
       if (obj[k] == null) obj[k] = {};
       obj = obj[k];

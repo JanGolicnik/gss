@@ -3,6 +3,10 @@
     {{{ c.header({ title:"hello" }) }}}
     <body>
         <header><h1>{{ site.title }}</h1></header>
-        <main>{{{ posts.map(p => c.post({ ...p })).join("") }}}</main>
+        <main>
+            <markdown>
+                {{{ posts.map(p => c.post({ ...p })).join("") }}}
+            </markdown>
+        </main>
     </body>
 </html>
