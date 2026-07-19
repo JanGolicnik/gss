@@ -195,6 +195,16 @@ function build() {
   }
 }
 
+marked.use({
+  renderer: {
+    link({ href, _, tokens }) {
+      const text = this.parser.parseInline(tokens);
+      const c = href.includes("#") ? "samesite" : "";
+      return `<a href="${href}" class="${c}">${text}</a>`;
+    }
+  }
+});
+
 if (process.argv[1] === path.resolve(import.meta.url.slice(7))) {
   build();
 }

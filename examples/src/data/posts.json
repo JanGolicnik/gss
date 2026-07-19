@@ -1,4 +1,4 @@
 [
-  { "title": "Prvi post", "content": "First post." },
-  { "title": "Drugi post", "content": "Second post." }
+  { "id": "prvi_post", "title": "Prvi post", "content": "First post." },
+  { "id": "drugi_post", "title": "Drugi post", "content": "Second post." }
 ]
