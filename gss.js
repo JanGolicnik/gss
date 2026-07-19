@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { marked } from "marked";
+import { gfmHeadingId } from "marked-gfm-heading-id";
 
 export default {
   init,
@@ -99,7 +100,8 @@ function compile_template(str) {
 }
 
 export function render_str(str, ctx) {
-  return compile_template(str).map((p) =>
+  return compile_template(str)
+    .map((p) =>
       p.markdown
         ? marked.parse(p.markdown.map((t) => evaluate(t, ctx)).join(""))
         : evaluate(p, ctx),
@@ -195,15 +197,55 @@ function build() {
   }
 }
 
-marked.use({
-  renderer: {
-    link({ href, _, tokens }) {
-      const text = this.parser.parseInline(tokens);
-      const c = href.includes("#") ? "samesite" : "";
-      return `<a href="${href}" class="${c}">${text}</a>`;
-    }
-  }
-});
+function linkExtension() {
+  return {
+    renderer: {
+      link({ href, _, tokens }) {
+        const text = this.parser.parseInline(tokens);
+        const c = href.includes("#") ? "samesite" : "";
+        return `<a href="${href}" class="${c}">${text}</a>`;
+      },
+    },
+  };
+}
+
+function sectionExtension() {
+  return {
+    hooks: {
+      processAllTokens(tokens) {
+        let i = 0;
+        const collect = (depth = 0) => {
+          const out = [];
+          while (i < tokens.length) {
+            const token = tokens[i];
+            if (token.depth && token.depth <= depth) break;
+            out.push(token);
+            i++;
+            if (token.type !== "heading") continue;
+            out.push({
+              type: "section",
+              tokens: collect(token.depth),
+              raw: token.raw,
+            });
+          }
+          return out;
+        };
+        return collect();
+      },
+    },
+    extensions: [
+      {
+        name: "section",
+        level: "block",
+        renderer(token) {
+          return `<section>${this.parser.parse(token.tokens)}</section>`;
+        },
+      },
+    ],
+  };
+}
+
+marked.use(gfmHeadingId(), sectionExtension(), linkExtension());
 
 if (process.argv[1] === path.resolve(import.meta.url.slice(7))) {
   build();
