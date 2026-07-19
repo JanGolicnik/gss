@@ -99,8 +99,7 @@ function compile_template(str) {
 }
 
 export function render_str(str, ctx) {
-  return compile_template(str)
-    .map((p) =>
+  return compile_template(str).map((p) =>
       p.markdown
         ? marked.parse(p.markdown.map((t) => evaluate(t, ctx)).join(""))
         : evaluate(p, ctx),
