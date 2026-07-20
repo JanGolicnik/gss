@@ -1,11 +1,11 @@
 # gss
 
-Gospod Spletna Stran is a very simple javascript templating engine that i use for some of my projects.
+Gospod Spletna Stran is a very simple javascript templating engine that i use for mu stuff
 
 ## usage
 
 ```bash
-node gss.js # output in ./docs
+bun gss.js # output in ./docs
 ```
 
 or
@@ -43,5 +43,9 @@ afterwards every page or component is given the loaded data files and any additi
 <script &> stmt; stmt; return expr; </script> // escapes html and allows for multiple statements, requires a return at the end tho
 <script &&> stmt; stmt; return expr; </script>// same but doesnt escape html
 ```
+
+## languages
+
+if a `data/languages.json` is provided then calling gss thru the command line will render every file multiple times, setting the language variable to the ones provided. all variations get put in their respective folders besides the first language which remains at root
 
 Licensed under GPLv3, see LICENSE

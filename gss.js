@@ -140,7 +140,8 @@ function load_components(ctx, dir) {
     if (extension !== ".html" && extension !== ".md") continue;
     const template = fs.readFileSync(p, "utf8");
     const name = path.basename(p, extension);
-    c[name] = (p = {}) =>
+    const dir = path.relative(COMPONENTS_DIR, p).slice(0, -extension.length);
+    c[dir] = (p = {}) =>
       render_str(template, { ...ctx, c, p, escape, page: name });
   }
   return c;
@@ -183,15 +184,31 @@ function build() {
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
+  const app = get_app();
+  const languages = app.data.languages ?? [""];
   for (const f of walk_dir(SRC_DIR, [DATA_DIR, COMPONENTS_DIR])) {
     const f2 = path.relative(SRC_DIR, f);
-    const dst = path.join(OUT_DIR, f2);
-    fs.mkdirSync(path.dirname(dst), { recursive: true });
+
     if (!f.endsWith(".html")) {
+      const dst = path.join(OUT_DIR, f2);
+      fs.mkdirSync(path.dirname(dst), { recursive: true });
       fs.copyFileSync(f, dst);
       continue;
     }
-    fs.writeFileSync(dst, render(f2));
+
+    const src = fs.readFileSync(f, "utf8");
+    for (const [index, language] of languages.entries()) {
+      const dst = path.join(OUT_DIR, index === 0 ? "" : language, f2);
+      fs.mkdirSync(path.dirname(dst), { recursive: true });
+      app.data.language = language;
+      const ctx = {
+        ...app.data,
+        c: app.components,
+        page: path.parse(f).name,
+        p: {}
+      };
+      fs.writeFileSync(dst, render_str(src, ctx));
+    }
   }
 }
 
@@ -243,6 +260,12 @@ function sectionExtension() {
       },
     ],
   };
+}
+
+function compare_html_tags(root1, root2) {
+  for (const child of root1.children) {
+    console.log(child);
+  }
 }
 
 marked.use(gfmHeadingId(), sectionExtension(), linkExtension());
