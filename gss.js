@@ -2,7 +2,7 @@
 "use strict";
 import fs from "node:fs";
 import path from "node:path";
-import { marked } from "marked";
+import { Lexer, marked } from "marked";
 import { gfmHeadingId } from "marked-gfm-heading-id";
 
 export default {
@@ -228,6 +228,21 @@ function sectionExtension() {
   return {
     hooks: {
       processAllTokens(tokens) {
+        for (const token of tokens) {
+          if (!token.text) continue;
+          const i = token.text.lastIndexOf("%%");
+          if (i < 0) continue;
+
+          token.extra_id = token.text.slice(i + 2).trim();
+          token.text = token.text.slice(0, i).trim();
+          token.raw = token.raw.slice(0, token.raw.lastIndexOf("%%")).trim();
+
+          if (token.tokens) {
+            const lexer = new Lexer(this.options);
+            token.tokens = lexer.inlineTokens(token.text);
+          }
+        }
+
         let i = 0;
         const collect = (parent = null) => {
           const out = parent ? [parent] : [];
@@ -243,7 +258,7 @@ function sectionExtension() {
               type: "section",
               tokens: collect(token),
               depth: token.depth,
-              section_class: "h-" + token.text.replaceAll(" ", "-"),
+              section_id: token.extra_id ? `h-${token.extra_id}` : undefined,
               raw: token.raw,
             });
           }
@@ -258,7 +273,7 @@ function sectionExtension() {
         level: "block",
         renderer(token) {
           const tag = token.depth > 1 ? "section" : "article";
-          return `<${tag} class="${token.section_class}">${this.parser.parse(token.tokens)}</${tag}>`;
+          return `<${tag} id="${token.section_id ?? ""}">${this.parser.parse(token.tokens)}</${tag}>`;
         },
       },
     ],
@@ -271,7 +286,7 @@ function compare_html_tags(root1, root2) {
   }
 }
 
-marked.use(gfmHeadingId(), sectionExtension(), linkExtension());
+marked.use(sectionExtension(), linkExtension());
 
 if (process.argv[1] === path.resolve(import.meta.url.slice(7))) {
   build();
