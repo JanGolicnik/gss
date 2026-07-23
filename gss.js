@@ -229,18 +229,21 @@ function sectionExtension() {
     hooks: {
       processAllTokens(tokens) {
         let i = 0;
-        const collect = (depth = 0) => {
-          const out = [];
+        const collect = (parent = null) => {
+          const out = parent ? [parent] : [];
           while (i < tokens.length) {
             const token = tokens[i];
-            if (token.depth && token.depth <= depth) break;
-            out.push(token);
+            if (token.depth && token.depth <= (parent?.depth ?? 0)) break;
             i++;
-            if (token.type !== "heading") continue;
+            if (token.type !== "heading") {
+              out.push(token);
+              continue;
+            }
             out.push({
               type: "section",
-              tokens: collect(token.depth),
+              tokens: collect(token),
               depth: token.depth,
+              section_class: "h-" + token.text.replaceAll(" ", "-"),
               raw: token.raw,
             });
           }
@@ -255,7 +258,7 @@ function sectionExtension() {
         level: "block",
         renderer(token) {
           const tag = token.depth > 1 ? "section" : "article";
-          return `<${tag}>${this.parser.parse(token.tokens)}</${tag}>`;
+          return `<${tag} class="${token.section_class}">${this.parser.parse(token.tokens)}</${tag}>`;
         },
       },
     ],
