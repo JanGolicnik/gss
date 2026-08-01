@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Lexer, marked } from "marked";
-import { gfmHeadingId } from "marked-gfm-heading-id";
+import { formatDistanceStrict } from "date-fns";
 
 export default {
   init,
@@ -29,6 +29,13 @@ const ESC = {
 
 function escape(s) {
   return String(s).replace(/[&<>"']/g, (c) => ESC[c]);
+}
+
+function time_between(date, base = Date.now()) {
+  const a = new Date(date);
+  const b = new Date(base);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null;
+  return formatDistanceStrict(a, b, { addSuffix: true });
 }
 
 let _app = null;
@@ -114,13 +121,13 @@ export function render_component(name, data) {
 export function render(f, p) {
   const app = get_app();
   f = path.join(app.src_dir, f);
-  const ctx = {
+  return render_str(fs.readFileSync(f, "utf8"), {
     ...app.data,
+    ...app.helpers,
     p,
     c: app.components,
     page: path.parse(f).name,
-  };
-  return render_str(fs.readFileSync(f, "utf8"), ctx);
+  });
 }
 
 function* walk_dir(dir, filter = null) {
@@ -132,7 +139,7 @@ function* walk_dir(dir, filter = null) {
   }
 }
 
-function load_components(ctx, dir) {
+function load_components(app, dir) {
   const c = {};
   if (!fs.existsSync(dir)) return c;
   for (const p of walk_dir(dir)) {
@@ -142,7 +149,7 @@ function load_components(ctx, dir) {
     const name = path.basename(p, extension);
     const dir = path.relative(COMPONENTS_DIR, p).slice(0, -extension.length);
     c[dir] = (p = {}) =>
-      render_str(template, { ...ctx, c, p, escape, page: name });
+      render_str(template, { ...app.data, ...app.helpers, c, p, page: name });
   }
   return c;
 }
@@ -170,13 +177,15 @@ function init(config) {
   const data_dir = config?.data_dir ?? DATA_DIR;
   const components_dir = config?.components_dir ?? COMPONENTS_DIR;
   const data = load_data(src_dir);
-  const components = load_components(data, components_dir);
+  const helpers = { escape, time_between };
+  const components = load_components({ data, helpers }, components_dir);
   _app = {
     data,
     components,
     src_dir,
     data_dir,
     components_dir,
+    helpers
   };
 }
 
@@ -201,13 +210,13 @@ function build() {
       const dst = path.join(OUT_DIR, index === 0 ? "" : language, f2);
       fs.mkdirSync(path.dirname(dst), { recursive: true });
       app.data.language = language;
-      const ctx = {
+      fs.writeFileSync(dst, render_str(src, {
         ...app.data,
+        ...app.helpers,
         c: app.components,
         page: path.parse(f).name,
         p: {}
-      };
-      fs.writeFileSync(dst, render_str(src, ctx));
+      }));
     }
   }
 }
@@ -278,12 +287,6 @@ function sectionExtension() {
       },
     ],
   };
-}
-
-function compare_html_tags(root1, root2) {
-  for (const child of root1.children) {
-    console.log(child);
-  }
 }
 
 marked.use(sectionExtension(), linkExtension());
